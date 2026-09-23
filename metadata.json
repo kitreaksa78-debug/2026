@@ -1,0 +1,6 @@
+{
+  "name": "Video Translator",
+  "description": "AI-powered video subtitle translation with faster-whisper, LibreTranslate, and FFmpeg video burning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,116 @@
+services:
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: video_translator_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./data:/data:ro
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: video_translator_frontend
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: video_translator_backend
+    restart: unless-stopped
+    env_file:
+      - .env.example
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - LIBRETRANSLATE_URL=http://libretranslate:5000
+      - STORAGE_PATH=/data
+      - TEMP_PATH=/data/temp
+      - PORT=8000
+    volumes:
+      - ./data:/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      libretranslate:
+        condition: service_started
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: video_translator_worker
+    restart: unless-stopped
+    env_file:
+      - .env.example
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - LIBRETRANSLATE_URL=http://libretranslate:5000
+      - STORAGE_PATH=/data
+      - TEMP_PATH=/data/temp
+      - WHISPER_MODEL=large-v3
+      - WHISPER_DEVICE=auto
+      - WHISPER_COMPUTE_TYPE=auto
+    volumes:
+      - ./data:/data
+      - whisper_cache:/root/.cache/huggingface
+    depends_on:
+      redis:
+        condition: service_healthy
+      libretranslate:
+        condition: service_started
+    # If NVIDIA GPU is available, uncomment the deploy section below:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  redis:
+    image: redis:7-alpine
+    container_name: video_translator_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: video_translator_libretranslate
+    restart: unless-stopped
+    environment:
+      - LT_LOAD_ONLY=en,km,th,vi,zh,ja,ko,fr,es,de,pt,ru,ar
+      - LT_UPDATE_MODELS=true
+    volumes:
+      - lt_models:/home/libretranslate/.local/share
+      - lt_cache:/home/libretranslate/.local/cache
+    ports:
+      - "5000:5000"
+
+volumes:
+  redis_data:
+  lt_models:
+  lt_cache:
+  whisper_cache:

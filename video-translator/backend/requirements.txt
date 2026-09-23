@@ -1,0 +1,12 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+redis==5.2.1
+celery==5.4.0
+requests==2.32.3
+sse-starlette==2.2.1
+aiofiles==24.1.0
+argostranslate>=1.9.0
+faster-whisper==1.1.1
